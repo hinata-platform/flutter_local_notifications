@@ -1854,6 +1854,84 @@ void main() {
       );
     });
 
+    test('show with metric style settings', () async {
+      const AndroidInitializationSettings androidInitializationSettings =
+          AndroidInitializationSettings('app_icon');
+      const InitializationSettings initializationSettings =
+          InitializationSettings(android: androidInitializationSettings);
+      await flutterLocalNotificationsPlugin.initialize(
+        settings: initializationSettings,
+      );
+      final DateTime endsAt = DateTime.utc(2026, 10, 14, 9, 25);
+      final AndroidNotificationDetails androidNotificationDetails =
+          AndroidNotificationDetails(
+        'channelId',
+        'channelName',
+        ongoing: true,
+        requestPromotedOngoing: true,
+        styleInformation: MetricStyleInformation(
+          <NotificationMetric>[
+            NotificationMetric.timer(endsAt, label: 'Left'),
+            const NotificationMetric.pausedStopwatch(
+              Duration(minutes: 5),
+              label: 'Paused',
+              format: MetricTimeFormat.adaptive,
+            ),
+            const NotificationMetric.text('2', label: 'Round', unit: 'of 4'),
+          ],
+          criticalMetricIndex: 0,
+        ),
+      );
+
+      await flutterLocalNotificationsPlugin.show(
+        id: 1,
+        title: 'notification title',
+        body: 'notification body',
+        notificationDetails: NotificationDetails(
+          android: androidNotificationDetails,
+        ),
+      );
+
+      final Map<Object?, Object?> platformSpecifics =
+          (log.last.arguments as Map<Object?, Object?>)['platformSpecifics']!
+              as Map<Object?, Object?>;
+      expect(platformSpecifics['style'], AndroidNotificationStyle.metric.index);
+      expect(platformSpecifics['styleInformation'], <String, Object?>{
+        'htmlFormatContent': false,
+        'htmlFormatTitle': false,
+        'metrics': <Map<String, Object?>>[
+          <String, Object?>{
+            'kind': NotificationMetricKind.timer.index,
+            'label': 'Left',
+            'timeMillis': endsAt.millisecondsSinceEpoch,
+            'durationMillis': null,
+            'text': null,
+            'unit': null,
+            'format': MetricTimeFormat.chronometer.index,
+          },
+          <String, Object?>{
+            'kind': NotificationMetricKind.pausedStopwatch.index,
+            'label': 'Paused',
+            'timeMillis': null,
+            'durationMillis': const Duration(minutes: 5).inMilliseconds,
+            'text': null,
+            'unit': null,
+            'format': MetricTimeFormat.adaptive.index,
+          },
+          <String, Object?>{
+            'kind': NotificationMetricKind.text.index,
+            'label': 'Round',
+            'timeMillis': null,
+            'durationMillis': null,
+            'text': '2',
+            'unit': 'of 4',
+            'format': MetricTimeFormat.adaptive.index,
+          },
+        ],
+        'criticalMetricIndex': 0,
+      });
+    });
+
     test('show with progress style settings', () async {
       const AndroidInitializationSettings androidInitializationSettings =
           AndroidInitializationSettings('app_icon');

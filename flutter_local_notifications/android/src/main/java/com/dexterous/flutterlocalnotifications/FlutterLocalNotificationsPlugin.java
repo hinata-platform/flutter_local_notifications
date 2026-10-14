@@ -39,6 +39,7 @@ import android.util.Log;
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.AlarmManagerCompat;
 import androidx.core.app.NotificationCompat;
@@ -70,6 +71,8 @@ import com.dexterous.flutterlocalnotifications.models.styles.BigTextStyleInforma
 import com.dexterous.flutterlocalnotifications.models.styles.DefaultStyleInformation;
 import com.dexterous.flutterlocalnotifications.models.styles.InboxStyleInformation;
 import com.dexterous.flutterlocalnotifications.models.styles.MessagingStyleInformation;
+import com.dexterous.flutterlocalnotifications.models.styles.MetricStyleInformation;
+import com.dexterous.flutterlocalnotifications.models.styles.NotificationMetric;
 import com.dexterous.flutterlocalnotifications.models.styles.ProgressStyleInformation;
 import com.dexterous.flutterlocalnotifications.models.styles.ProgressStylePoint;
 import com.dexterous.flutterlocalnotifications.models.styles.ProgressStyleSegment;
@@ -471,6 +474,14 @@ public class FlutterLocalNotificationsPlugin
     setCategory(notificationDetails, builder);
     setTimeoutAfter(notificationDetails, builder);
     Notification notification = builder.build();
+    if (notificationDetails.style == NotificationStyle.Metric
+        && VERSION.SDK_INT >= ANDROID_17) {
+      notification =
+          applyMetricStyle(
+              context,
+              notification,
+              (MetricStyleInformation) notificationDetails.styleInformation);
+    }
     if (notificationDetails.additionalFlags != null
         && notificationDetails.additionalFlags.length > 0) {
       for (int additionalFlag : notificationDetails.additionalFlags) {
@@ -1063,6 +1074,73 @@ public class FlutterLocalNotificationsPlugin
         break;
       default:
         break;
+    }
+  }
+
+  /** Android 17, the first version with {@link Notification.MetricStyle}. */
+  private static final int ANDROID_17 = 37;
+
+  /**
+   * NotificationCompat has no metric style yet, so the platform builder takes over the built
+   * notification and adds it. Everything else set through the compat builder is kept.
+   */
+  @RequiresApi(ANDROID_17)
+  private static Notification applyMetricStyle(
+      Context context, Notification notification, MetricStyleInformation information) {
+    Notification.MetricStyle style = new Notification.MetricStyle();
+    if (information.metrics != null) {
+      for (NotificationMetric metric : information.metrics) {
+        Notification.Metric.MetricValue value = metricValue(metric);
+        if (value != null) {
+          style.addMetric(new Notification.Metric(value, metric.label));
+        }
+      }
+    }
+    if (information.criticalMetricIndex != null) {
+      style.setCriticalMetric(information.criticalMetricIndex);
+    }
+    return Notification.Builder.recoverBuilder(context, notification).setStyle(style).build();
+  }
+
+  @RequiresApi(ANDROID_17)
+  private static Notification.Metric.MetricValue metricValue(NotificationMetric metric) {
+    int format =
+        metric.format != null && metric.format == NotificationMetric.FORMAT_CHRONOMETER
+            ? Notification.Metric.TimeDifference.FORMAT_CHRONOMETER
+            : Notification.Metric.TimeDifference.FORMAT_ADAPTIVE;
+    if (metric.kind == null) {
+      return null;
+    }
+    switch (metric.kind) {
+      case NotificationMetric.KIND_TIMER:
+        return metric.timeMillis == null
+            ? null
+            : Notification.Metric.TimeDifference.forTimer(
+                java.time.Instant.ofEpochMilli(metric.timeMillis), format);
+      case NotificationMetric.KIND_STOPWATCH:
+        return metric.timeMillis == null
+            ? null
+            : Notification.Metric.TimeDifference.forStopwatch(
+                java.time.Instant.ofEpochMilli(metric.timeMillis), format);
+      case NotificationMetric.KIND_PAUSED_TIMER:
+        return metric.durationMillis == null
+            ? null
+            : Notification.Metric.TimeDifference.forPausedTimer(
+                java.time.Duration.ofMillis(metric.durationMillis), format);
+      case NotificationMetric.KIND_PAUSED_STOPWATCH:
+        return metric.durationMillis == null
+            ? null
+            : Notification.Metric.TimeDifference.forPausedStopwatch(
+                java.time.Duration.ofMillis(metric.durationMillis), format);
+      case NotificationMetric.KIND_TEXT:
+        if (metric.text == null) {
+          return null;
+        }
+        return metric.unit == null
+            ? new Notification.Metric.FixedText(metric.text)
+            : new Notification.Metric.FixedText(metric.text, metric.unit);
+      default:
+        return null;
     }
   }
 

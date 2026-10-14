@@ -50,6 +50,9 @@ enum AndroidNotificationStyle {
 
   /// The progress style ("Live Update").
   progress,
+
+  /// The metric style, on Android 17 and newer.
+  metric,
 }
 
 /// Specifies the source for a sound used by Android notifications.

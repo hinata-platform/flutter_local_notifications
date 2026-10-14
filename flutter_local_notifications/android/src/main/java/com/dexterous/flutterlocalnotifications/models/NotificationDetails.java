@@ -12,6 +12,8 @@ import com.dexterous.flutterlocalnotifications.models.styles.BigTextStyleInforma
 import com.dexterous.flutterlocalnotifications.models.styles.DefaultStyleInformation;
 import com.dexterous.flutterlocalnotifications.models.styles.InboxStyleInformation;
 import com.dexterous.flutterlocalnotifications.models.styles.MessagingStyleInformation;
+import com.dexterous.flutterlocalnotifications.models.styles.MetricStyleInformation;
+import com.dexterous.flutterlocalnotifications.models.styles.NotificationMetric;
 import com.dexterous.flutterlocalnotifications.models.styles.ProgressStyleInformation;
 import com.dexterous.flutterlocalnotifications.models.styles.ProgressStylePoint;
 import com.dexterous.flutterlocalnotifications.models.styles.ProgressStyleSegment;
@@ -90,6 +92,8 @@ public class NotificationDetails implements Serializable {
   private static final String STYLED_BY_PROGRESS = "styledByProgress";
   private static final String SEGMENTS = "segments";
   private static final String POINTS = "points";
+  private static final String METRICS = "metrics";
+  private static final String CRITICAL_METRIC_INDEX = "criticalMetricIndex";
   private static final String LENGTH = "length";
   private static final String POSITION = "position";
   private static final String ELEMENT_ID = "id";
@@ -451,6 +455,8 @@ public class NotificationDetails implements Serializable {
       notificationDetails.styleInformation = defaultStyleInformation;
     } else if (notificationDetails.style == NotificationStyle.Progress) {
       readProgressStyleInformation(notificationDetails, styleInformation, defaultStyleInformation);
+    } else if (notificationDetails.style == NotificationStyle.Metric) {
+      readMetricStyleInformation(notificationDetails, styleInformation, defaultStyleInformation);
     }
   }
 
@@ -486,6 +492,40 @@ public class NotificationDetails implements Serializable {
   private static IconSource readIconSource(Map<String, Object> map, String key) {
     Integer index = (Integer) map.get(key + ICON_SOURCE_SUFFIX);
     return index == null ? null : IconSource.values()[index];
+  }
+
+  @SuppressWarnings("unchecked")
+  private static void readMetricStyleInformation(
+      NotificationDetails notificationDetails,
+      Map<String, Object> styleInformation,
+      DefaultStyleInformation defaultStyleInformation) {
+    ArrayList<NotificationMetric> metrics = new ArrayList<>();
+    ArrayList<Map<String, Object>> rawMetrics =
+        (ArrayList<Map<String, Object>>) styleInformation.get(METRICS);
+    if (rawMetrics != null) {
+      for (Map<String, Object> metric : rawMetrics) {
+        metrics.add(
+            new NotificationMetric(
+                (Integer) metric.get("kind"),
+                (String) metric.get("label"),
+                readLong(metric.get("timeMillis")),
+                readLong(metric.get("durationMillis")),
+                (String) metric.get("text"),
+                (String) metric.get("unit"),
+                (Integer) metric.get("format")));
+      }
+    }
+    notificationDetails.styleInformation =
+        new MetricStyleInformation(
+            defaultStyleInformation.htmlFormatTitle,
+            defaultStyleInformation.htmlFormatBody,
+            metrics,
+            (Integer) styleInformation.get(CRITICAL_METRIC_INDEX));
+  }
+
+  /** The platform channel sends a Dart int as an Integer when it fits and as a Long otherwise. */
+  private static Long readLong(Object value) {
+    return value == null ? null : ((Number) value).longValue();
   }
 
   private static ArrayList<ProgressStyleSegment> readProgressSegments(

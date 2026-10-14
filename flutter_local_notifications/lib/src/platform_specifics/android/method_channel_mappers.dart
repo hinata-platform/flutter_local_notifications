@@ -15,6 +15,7 @@ import 'styles/default_style_information.dart';
 import 'styles/inbox_style_information.dart';
 import 'styles/media_style_information.dart';
 import 'styles/messaging_style_information.dart';
+import 'styles/metric_style_information.dart';
 import 'styles/progress_style_information.dart';
 
 extension AndroidInitializationSettingsMapper on AndroidInitializationSettings {
@@ -209,6 +210,26 @@ extension ProgressStyleInformationMapper on ProgressStyleInformation {
     ..addAll(_convertAndroidIconToMap(progressEndIcon, 'progressEndIcon'));
 }
 
+extension MetricStyleInformationMapper on MetricStyleInformation {
+  Map<String, Object?> toMap() => _convertDefaultStyleInformationToMap(this)
+    ..addAll(<String, Object?>{
+      'metrics': metrics.map((m) => m.toMap()).toList(),
+      'criticalMetricIndex': criticalMetricIndex,
+    });
+}
+
+extension NotificationMetricMapper on NotificationMetric {
+  Map<String, Object?> toMap() => <String, Object?>{
+    'kind': kind.index,
+    'label': label,
+    'timeMillis': time?.millisecondsSinceEpoch,
+    'durationMillis': duration?.inMilliseconds,
+    'text': text,
+    'unit': unit,
+    'format': format.index,
+  };
+}
+
 extension ProgressStyleSegmentMapper on ProgressStyleSegment {
   Map<String, Object?> toMap() => <String, Object?>{
     'length': length,
@@ -324,6 +345,12 @@ extension AndroidNotificationDetailsMapper on AndroidNotificationDetails {
       return <String, Object?>{
         'style': AndroidNotificationStyle.media.index,
         'styleInformation': (styleInformation as MediaStyleInformation?)
+            ?.toMap(),
+      };
+    } else if (styleInformation is MetricStyleInformation) {
+      return <String, Object?>{
+        'style': AndroidNotificationStyle.metric.index,
+        'styleInformation': (styleInformation as MetricStyleInformation?)
             ?.toMap(),
       };
     } else if (styleInformation is ProgressStyleInformation) {
