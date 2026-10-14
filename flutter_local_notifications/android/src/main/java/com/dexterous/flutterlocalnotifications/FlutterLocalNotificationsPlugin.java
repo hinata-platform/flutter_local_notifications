@@ -26,6 +26,7 @@ import android.os.Build;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.service.notification.StatusBarNotification;
 import android.text.Html;
@@ -1116,22 +1117,16 @@ public class FlutterLocalNotificationsPlugin
         return metric.timeMillis == null
             ? null
             : Notification.Metric.TimeDifference.forTimer(
-                java.time.Instant.ofEpochMilli(metric.timeMillis), format);
+                elapsedRealtimeOf(metric.timeMillis), format);
       case NotificationMetric.KIND_STOPWATCH:
         return metric.timeMillis == null
             ? null
             : Notification.Metric.TimeDifference.forStopwatch(
-                java.time.Instant.ofEpochMilli(metric.timeMillis), format);
+                elapsedRealtimeOf(metric.timeMillis), format);
       case NotificationMetric.KIND_PAUSED_TIMER:
-        return metric.durationMillis == null
-            ? null
-            : Notification.Metric.TimeDifference.forPausedTimer(
-                java.time.Duration.ofMillis(metric.durationMillis), format);
+        return pausedTimeDifference("forPausedTimer", metric.durationMillis, format);
       case NotificationMetric.KIND_PAUSED_STOPWATCH:
-        return metric.durationMillis == null
-            ? null
-            : Notification.Metric.TimeDifference.forPausedStopwatch(
-                java.time.Duration.ofMillis(metric.durationMillis), format);
+        return pausedTimeDifference("forPausedStopwatch", metric.durationMillis, format);
       case NotificationMetric.KIND_TEXT:
         if (metric.text == null) {
           return null;
@@ -1141,6 +1136,38 @@ public class FlutterLocalNotificationsPlugin
             : new Notification.Metric.FixedText(metric.text, metric.unit);
       default:
         return null;
+    }
+  }
+
+  /**
+   * The point in time [epochMillis] on the clock the system counts metrics by. The overloads taking
+   * a {@code java.time.Instant} are not used: an app that desugars its library calls hands the
+   * platform a {@code j$.time.Instant} instead, and the call fails.
+   */
+  private static long elapsedRealtimeOf(long epochMillis) {
+    return SystemClock.elapsedRealtime() + (epochMillis - System.currentTimeMillis());
+  }
+
+  /**
+   * A paused timer or stopwatch. These take a {@code java.time.Duration} only, so the call goes
+   * through reflection, which desugaring leaves alone.
+   */
+  @RequiresApi(ANDROID_17)
+  private static Notification.Metric.MetricValue pausedTimeDifference(
+      String factory, Long durationMillis, int format) {
+    if (durationMillis == null) {
+      return null;
+    }
+    try {
+      Class<?> durationClass = Class.forName("java.time.Duration");
+      Object duration = durationClass.getMethod("ofMillis", long.class).invoke(null, durationMillis);
+      return (Notification.Metric.MetricValue)
+          Notification.Metric.TimeDifference.class
+              .getMethod(factory, durationClass, int.class)
+              .invoke(null, duration, format);
+    } catch (ReflectiveOperationException e) {
+      Log.w(TAG, "Paused metric not available", e);
+      return null;
     }
   }
 
