@@ -1093,9 +1093,6 @@ public class FlutterLocalNotificationsPlugin
         if (segment.color != null) {
           builtSegment = builtSegment.setColor(segment.color);
         }
-        if (segment.semanticStyle != null) {
-          builtSegment = builtSegment.setSemanticStyle(segment.semanticStyle);
-        }
         segments.add(builtSegment);
       }
       progressStyle.setProgressSegments(segments);
@@ -1110,9 +1107,6 @@ public class FlutterLocalNotificationsPlugin
         }
         if (point.color != null) {
           builtPoint = builtPoint.setColor(point.color);
-        }
-        if (point.semanticStyle != null) {
-          builtPoint = builtPoint.setSemanticStyle(point.semanticStyle);
         }
         points.add(builtPoint);
       }
