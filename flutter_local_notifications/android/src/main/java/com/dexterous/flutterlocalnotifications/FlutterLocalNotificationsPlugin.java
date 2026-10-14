@@ -1626,7 +1626,11 @@ public class FlutterLocalNotificationsPlugin
     this.applicationContext = binding.getApplicationContext();
     this.channel = new MethodChannel(binding.getBinaryMessenger(), METHOD_CHANNEL);
     this.channel.setMethodCallHandler(this);
-    liveChannel = this.channel;
+    // A background engine (a widget, a headless task) attaches too, and may do so after the main
+    // one. It only stands in until an engine with an activity claims the channel below.
+    if (liveChannel == null) {
+      liveChannel = this.channel;
+    }
   }
 
   @Override
@@ -1644,6 +1648,8 @@ public class FlutterLocalNotificationsPlugin
     binding.addOnNewIntentListener(this);
     binding.addRequestPermissionsResultListener(this);
     binding.addActivityResultListener(this);
+    // The engine with the activity is the main isolate: dismissals meant for it go here.
+    liveChannel = this.channel;
 
     mainActivity = binding.getActivity();
     Intent mainActivityIntent = mainActivity.getIntent();
@@ -1666,6 +1672,7 @@ public class FlutterLocalNotificationsPlugin
     binding.addOnNewIntentListener(this);
     binding.addRequestPermissionsResultListener(this);
     binding.addActivityResultListener(this);
+    liveChannel = this.channel;
     mainActivity = binding.getActivity();
   }
 
